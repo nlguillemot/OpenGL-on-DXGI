@@ -184,19 +184,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     hr = swapChain->QueryInterface(&swapChain2);
     hFrameLatencyWaitableObject = swapChain2->GetFrameLatencyWaitableObject();
 
-    // Fetch the current swapchain backbuffer from the swap chain
-    ID3D11Texture2D *dxColorBuffer;
-    hr = swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID *)&dxColorBuffer);
-    assert(SUCCEEDED(hr));
-
-    // Create RTV for swapchain backbuffer
-    ID3D11RenderTargetView *colorBufferView;
-    hr = device->CreateRenderTargetView(
-        dxColorBuffer,
-        &CD3D11_RENDER_TARGET_VIEW_DESC(D3D11_RTV_DIMENSION_TEXTURE2D, DXGI_FORMAT_R8G8B8A8_UNORM),
-        &colorBufferView);
-    assert(SUCCEEDED(hr));
-
     // Create depth stencil texture
     ID3D11Texture2D *dxDepthBuffer;
     hr = device->CreateTexture2D(

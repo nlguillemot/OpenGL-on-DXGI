@@ -129,6 +129,9 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     // Grab OpenGL functions
     PFNGLENABLEPROC glEnable = (PFNGLENABLEPROC)GetProcAddress(hOpenGL32, "glEnable");
+    PFNGLDISABLEPROC glDisable = (PFNGLDISABLEPROC)GetProcAddress(hOpenGL32, "glDisable");
+    PFNGLCLEARPROC glClear = (PFNGLCLEARPROC)GetProcAddress(hOpenGL32, "glClear");
+    PFNGLSCISSORPROC glScissor = (PFNGLSCISSORPROC)GetProcAddress(hOpenGL32, "glScissor");
     PFNGLGENTEXTURESPROC glGenTextures = (PFNGLGENTEXTURESPROC)GetProcAddress(hOpenGL32, "glGenTextures");
     PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)wglGetProcAddress("glGenFramebuffers");
     PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)wglGetProcAddress("glBindFramebuffer");
@@ -273,6 +276,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         devCtx->OMSetRenderTargets(1, &colorBufferView, depthBufferView);
 
         // Direct3d renders to the render targets
+        float dxClearColor[] = { 1.0f, 0.0f, 0.0f, 1.0f };
+        devCtx->ClearRenderTargetView(colorBufferView, dxClearColor);
 
         // lock the dsv/rtv for GL access
         wglDXLockObjectsNV(gl_handleD3D, 1, &dsvHandleGL);
@@ -280,6 +285,11 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
         // OpenGL renders to the render targets
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        // clear half the screen, so half the screen will be from DX and half from GL
+        glEnable(GL_SCISSOR_TEST);
+        glScissor(0, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glDisable(GL_SCISSOR_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // unlock the dsv/rtv

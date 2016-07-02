@@ -137,6 +137,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)wglGetProcAddress("glGenFramebuffers");
     PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)wglGetProcAddress("glBindFramebuffer");
     PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)wglGetProcAddress("glFramebufferTexture2D");
+    PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus = (PFNGLCHECKFRAMEBUFFERSTATUSPROC)wglGetProcAddress("glCheckFramebufferStatus");
 
     // Enable OpenGL debugging
 #ifdef _DEBUG
@@ -197,18 +198,21 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     ID3D11DepthStencilView *depthBufferView;
     hr = device->CreateDepthStencilView(
         dxDepthBuffer,
-        &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D24_UNORM_S8_UINT),
+        &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D24_UNORM_S8_UINT, 0, 0, 1),
         &depthBufferView);
     assert(SUCCEEDED(hr));
 
     // Register D3D11 device with GL
     HANDLE gl_handleD3D;
     gl_handleD3D = wglDXOpenDeviceNV(device);
+    assert(gl_handleD3D); // check GetLastError() if this fails
 
     // register the Direct3D depth/stencil buffer as texture2d in opengl
     GLuint dsvNameGL;
     glGenTextures(1, &dsvNameGL);
+
     HANDLE dsvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxDepthBuffer, dsvNameGL, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
+    assert(dsvHandleGL); // check GetLastError() if this fails
 
     // Initialize GL FBO
     GLuint fbo;
@@ -254,10 +258,13 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
         // register current backbuffer
         HANDLE rtvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxColorBuffer, rtvNameGL, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
+        assert(rtvHandleGL); // check GetLastError() if this fails
 
         // Attach Direct3D color buffer to FBO
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rtvNameGL, 0);
+        GLenum fbostatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+        assert(fbostatus == GL_FRAMEBUFFER_COMPLETE);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Attach back buffer and depth texture to redertarget for the device.

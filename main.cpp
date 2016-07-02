@@ -129,10 +129,10 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     // Grab OpenGL functions
     PFNGLENABLEPROC glEnable = (PFNGLENABLEPROC)GetProcAddress(hOpenGL32, "glEnable");
-    PFNGLGENRENDERBUFFERSPROC glGenRenderbuffers = (PFNGLGENRENDERBUFFERSPROC)wglGetProcAddress("glGenRenderbuffers");
+    PFNGLGENTEXTURESPROC glGenTextures = (PFNGLGENTEXTURESPROC)GetProcAddress(hOpenGL32, "glGenTextures");
     PFNGLGENFRAMEBUFFERSPROC glGenFramebuffers = (PFNGLGENFRAMEBUFFERSPROC)wglGetProcAddress("glGenFramebuffers");
     PFNGLBINDFRAMEBUFFERPROC glBindFramebuffer = (PFNGLBINDFRAMEBUFFERPROC)wglGetProcAddress("glBindFramebuffer");
-    PFNGLFRAMEBUFFERRENDERBUFFERPROC glFramebufferRenderbuffer = (PFNGLFRAMEBUFFERRENDERBUFFERPROC)wglGetProcAddress("glFramebufferRenderbuffer");
+    PFNGLFRAMEBUFFERTEXTURE2DPROC glFramebufferTexture2D = (PFNGLFRAMEBUFFERTEXTURE2DPROC)wglGetProcAddress("glFramebufferTexture2D");
 
     // Enable OpenGL debugging
 #ifdef _DEBUG
@@ -176,12 +176,23 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         &devCtx);                    // ppImmediateContext
     assert(SUCCEEDED(hr));
 
+    // get frame latency waitable object
     IDXGISwapChain2* swapChain2;
     hr = swapChain->QueryInterface(&swapChain2);
+    hFrameLatencyWaitableObject = swapChain2->GetFrameLatencyWaitableObject();
+
+    // Fetch the current swapchain backbuffer from the swap chain
+    ID3D11Texture2D *dxColorBuffer;
+    hr = swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID *)&dxColorBuffer);
     assert(SUCCEEDED(hr));
 
-    // get frame latency waitable object
-    hFrameLatencyWaitableObject = swapChain2->GetFrameLatencyWaitableObject();
+    // Create RTV for swapchain backbuffer
+    ID3D11RenderTargetView *colorBufferView;
+    hr = device->CreateRenderTargetView(
+        dxColorBuffer,
+        &CD3D11_RENDER_TARGET_VIEW_DESC(D3D11_RTV_DIMENSION_TEXTURE2D, DXGI_FORMAT_R8G8B8A8_UNORM),
+        &colorBufferView);
+    assert(SUCCEEDED(hr));
 
     // Create depth stencil texture
     ID3D11Texture2D *dxDepthBuffer;
@@ -203,12 +214,10 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     HANDLE gl_handleD3D;
     gl_handleD3D = wglDXOpenDeviceNV(device);
 
-    // register the Direct3D depth/stencil buffer as renderbuffer in opengl
+    // register the Direct3D depth/stencil buffer as texture2d in opengl
     GLuint dsvNameGL;
-    HANDLE dsvHandleGL;
-
-    glGenRenderbuffers(1, &dsvNameGL);
-    dsvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxDepthBuffer, dsvNameGL, GL_RENDERBUFFER, WGL_ACCESS_READ_WRITE_NV);
+    glGenTextures(1, &dsvNameGL);
+    HANDLE dsvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxDepthBuffer, dsvNameGL, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
 
     // Initialize GL FBO
     GLuint fbo;
@@ -216,13 +225,13 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     // attach the Direct3D depth buffer to FBO
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, dsvNameGL);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, dsvNameGL);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, dsvNameGL, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dsvNameGL, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // GL RTV will be recreated every frame to use the FLIP swap chain
     GLuint rtvNameGL;
-    glGenRenderbuffers(1, &rtvNameGL);
+    glGenTextures(1, &rtvNameGL);
 
     // main loop
     while (true)
@@ -253,12 +262,12 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         assert(SUCCEEDED(hr));
 
         // register current backbuffer
-        HANDLE rtvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxColorBuffer, rtvNameGL, GL_RENDERBUFFER, WGL_ACCESS_READ_WRITE_NV);
+        HANDLE rtvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxColorBuffer, rtvNameGL, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
 
         // Attach Direct3D color buffer to FBO
-        // glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-        // glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, rtvNameGL);
-        // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rtvNameGL, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Attach back buffer and depth texture to redertarget for the device.
         devCtx->OMSetRenderTargets(1, &colorBufferView, depthBufferView);
@@ -266,14 +275,16 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         // Direct3d renders to the render targets
 
         // lock the dsv/rtv for GL access
-        // wglDXLockObjectsNV(gl_handleD3D, 1, &dsvHandleGL);
-        // wglDXLockObjectsNV(gl_handleD3D, 1, &rtvHandleGL);
+        wglDXLockObjectsNV(gl_handleD3D, 1, &dsvHandleGL);
+        wglDXLockObjectsNV(gl_handleD3D, 1, &rtvHandleGL);
 
         // OpenGL renders to the render targets
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // unlock the dsv/rtv
-        // wglDXUnlockObjectsNV(gl_handleD3D, 1, &dsvHandleGL);
-        // wglDXUnlockObjectsNV(gl_handleD3D, 1, &rtvHandleGL);
+        wglDXUnlockObjectsNV(gl_handleD3D, 1, &dsvHandleGL);
+        wglDXUnlockObjectsNV(gl_handleD3D, 1, &rtvHandleGL);
 
         // DXGI presents the results on the screen
         hr = swapChain->Present(0, 0);

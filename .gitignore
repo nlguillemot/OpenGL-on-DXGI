@@ -27,3 +27,9 @@
 *.exe
 *.out
 *.app
+
+# VS stuff
+.vs
+*.VC.db
+*.VC.opendb
+x64

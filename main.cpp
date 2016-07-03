@@ -155,7 +155,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     DXGI_SWAP_CHAIN_DESC scd = {};
     scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     scd.SampleDesc.Count = 1;
-    scd.BufferCount = 3;
+    scd.BufferCount = DXGI_MAX_SWAP_CHAIN_BUFFERS; // stress test
     scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scd.OutputWindow = hWnd;
     scd.Windowed = TRUE;
@@ -184,6 +184,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     // get frame latency waitable object
     IDXGISwapChain2* swapChain2;
     hr = swapChain->QueryInterface(&swapChain2);
+    assert(SUCCEEDED(hr));
     hFrameLatencyWaitableObject = swapChain2->GetFrameLatencyWaitableObject();
 
     // Create depth stencil texture
@@ -198,7 +199,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     ID3D11DepthStencilView *depthBufferView;
     hr = device->CreateDepthStencilView(
         dxDepthBuffer,
-        &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D24_UNORM_S8_UINT, 0, 0, 1),
+        &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D24_UNORM_S8_UINT),
         &depthBufferView);
     assert(SUCCEEDED(hr));
 
@@ -220,8 +221,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 
     // attach the Direct3D depth buffer to FBO
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, dsvNameGL, 0);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dsvNameGL, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dsvNameGL, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // GL RTV will be recreated every frame to use the FLIP swap chain
@@ -264,7 +264,31 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rtvNameGL, 0);
         GLenum fbostatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-        assert(fbostatus == GL_FRAMEBUFFER_COMPLETE);
+        if (fbostatus == GL_FRAMEBUFFER_COMPLETE)
+        {
+            OutputDebugStringA("Framebuffer complete\n");
+        }
+        else
+        {   
+            OutputDebugStringA("Framebuffer not complete: ");
+            const char* errmsg = NULL;
+            switch (fbostatus)
+            {
+            case GL_FRAMEBUFFER_COMPLETE: errmsg = "GL_FRAMEBUFFER_COMPLETE"; break;
+            case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT"; break;
+            case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT"; break;
+            case GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_DRAW_BUFFER"; break;
+            case GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_READ_BUFFER"; break;
+            case GL_FRAMEBUFFER_UNSUPPORTED: errmsg = "GL_FRAMEBUFFER_UNSUPPORTED"; break;
+            case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE"; break;
+            case GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS: errmsg = "GL_FRAMEBUFFER_INCOMPLETE_LAYER_TARGETS"; break;
+            }
+            if (errmsg)
+            {
+                OutputDebugStringA(errmsg);
+            }
+            OutputDebugStringA("\n");
+        }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         // Attach back buffer and depth texture to redertarget for the device.

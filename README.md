@@ -23,4 +23,6 @@ Haven't tested on AMD yet. Planning to grab an AMD GPU soon-ish, and will test i
 
 ## Conclusions
 
-This extension's support doesn't yet match the capabilities of using DXGI with plain D3D. Since most of the bugginess comes from trying to access swap chain buffers from OpenGL, you might be able to get away with using this extension by not trying to wrap the swap chain buffers and instead just doing a copy at the end of your frame. Unfortunately, it's easy to introduce extra presentation latency that way.
+This extension's support doesn't yet match the capabilities of using DXGI with plain D3D, mostly because the implementation of the extension has not been updated for Windows 10 style FLIP swap chains. It works okay with older swap chain types.
+
+Since most of the bugginess comes from trying to access swap chain buffers from OpenGL, you might be able to get away with using this extension by not trying to wrap the swap chain buffers and instead just doing a copy at the end of your frame. Unfortunately, it's easy to introduce extra presentation latency that way.

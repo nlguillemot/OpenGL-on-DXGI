@@ -231,7 +231,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     // Create depth stencil texture
     ID3D11Texture2D *dxDepthBuffer;
     CheckHR(device->CreateTexture2D(
-        &CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_R24G8_TYPELESS, SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, D3D11_BIND_DEPTH_STENCIL),
+        &CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_R32G8X24_TYPELESS, SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, D3D11_BIND_DEPTH_STENCIL),
         NULL,
         &dxDepthBuffer));
 
@@ -239,7 +239,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     ID3D11DepthStencilView *depthBufferView;
     CheckHR(device->CreateDepthStencilView(
         dxDepthBuffer,
-        &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D24_UNORM_S8_UINT),
+        &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D32_FLOAT_S8X24_UINT),
         &depthBufferView));
 
     // register the Direct3D depth/stencil buffer as texture2d in opengl
@@ -347,7 +347,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         glDisable(GL_SCISSOR_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        // TODO: Test that depth/stencil tests actually work
+        // TODO: Test that depth/stencil tests actually work by rendering some triangles with depth/stencil tests, mixing between GL and DX
 
         // unlock the dsv/rtv
         wglDXUnlockObjectsNV(gl_handleD3D, 1, &dsvHandleGL);

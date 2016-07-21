@@ -15,11 +15,13 @@ Also, I'm getting errors in the framebuffer's status. Not sure why yet. The erro
 
 ## Intel
 
-Intel recently started supporting `WGL_NV_DX_interop2`, but I haven't figured out how to get the bleeding edge drivers to use it.
+Intel recently started supporting `WGL_NV_DX_interop2`, but I haven't figured out how to get the bleeding edge drivers to use it. I'll test it as soon as the updated drivers trickle down to my computer.
 
 ## AMD
 
-Haven't tested on AMD yet. Planning to grab an AMD GPU soon-ish, and will test it then.
+Tested on R9 380.
+
+Currently has an error and returns null when I call `wglDXRegisterObjectNV`. The error message says "The system cannot open the device or file specified." Haven't yet figured out how to get around this.
 
 ## Conclusions
 

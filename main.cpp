@@ -1,5 +1,6 @@
 #include <dxgi1_5.h>
 #include <d3d11.h>
+#include <comdef.h>
 
 #include "glcorearb.h"
 #include "wglext.h"
@@ -32,11 +33,40 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
+bool CheckHR(HRESULT hr)
+{
+    if (SUCCEEDED(hr))
+    {
+        return true;
+    }
+
+    _com_error err(hr);
+
+    int result = MessageBoxW(NULL, err.ErrorMessage(), L"Error", MB_ABORTRETRYIGNORE);
+    if (result == IDABORT)
+    {
+        ExitProcess(-1);
+    }
+    else if (result == IDRETRY)
+    {
+        DebugBreak();
+    }
+
+    return false;
+}
+
+bool CheckWin32(BOOL okay)
+{
+    if (okay)
+    {
+        return true;
+    }
+
+    return CheckHR(HRESULT_FROM_WIN32(GetLastError()));
+}
+
 int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    bool ok;
-    HRESULT hr;
-
     // Register window class
     WNDCLASSEX wc = {};
     wc.cbSize = sizeof(wc);
@@ -45,15 +75,13 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     wc.hInstance = GetModuleHandleW(NULL);
     wc.hCursor = LoadCursorW(NULL, IDC_ARROW);
     wc.lpszClassName = TEXT("WindowClass");
-    ok = RegisterClassExW(&wc) != NULL;
-    assert(ok);
+    CheckWin32(RegisterClassExW(&wc) != NULL);
 
     // Determine size of window based on window style
     DWORD dwStyle = WS_OVERLAPPEDWINDOW;
     DWORD dwExStyle = 0;
     RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
-    ok = AdjustWindowRectEx(&wr, dwStyle, FALSE, dwExStyle) != FALSE;
-    assert(ok);
+    CheckWin32(AdjustWindowRectEx(&wr, dwStyle, FALSE, dwExStyle) != FALSE);
 
     TCHAR* title = TEXT("OpenGL on DXGI");
 
@@ -63,17 +91,17 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         CW_USEDEFAULT, CW_USEDEFAULT,
         wr.right - wr.left, wr.bottom - wr.top,
         NULL, NULL, hInstance, NULL);
-    assert(hWnd);
+    CheckWin32(hWnd != NULL);
 
     // Unhide the window
     ShowWindow(hWnd, SW_SHOWDEFAULT);
 
     // Create window that will be used to create a GL context
     HWND gl_hWnd = CreateWindowEx(0, TEXT("WindowClass"), 0, 0, 0, 0, 0, 0, 0, 0, hInstance, 0);
-    assert(gl_hWnd);
+    CheckWin32(gl_hWnd != NULL);
 
     HDC gl_hDC = GetDC(gl_hWnd);
-    assert(gl_hDC);
+    CheckWin32(gl_hDC != NULL);
 
     // set pixelformat for window that supports OpenGL
     PIXELFORMATDESCRIPTOR gl_pfd = {};
@@ -82,16 +110,14 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     gl_pfd.dwFlags = PFD_SUPPORT_OPENGL;
 
     int chosenPixelFormat = ChoosePixelFormat(gl_hDC, &gl_pfd);
-    ok = SetPixelFormat(gl_hDC, chosenPixelFormat, &gl_pfd) != FALSE;
-    assert(ok);
+    CheckWin32(SetPixelFormat(gl_hDC, chosenPixelFormat, &gl_pfd) != FALSE);
 
     // Create dummy GL context that will be used to create the real context
     HGLRC dummy_hGLRC = wglCreateContext(gl_hDC);
-    assert(dummy_hGLRC);
+    CheckWin32(dummy_hGLRC != NULL);
 
     // Use the dummy context to get function to create a better context
-    ok = wglMakeCurrent(gl_hDC, dummy_hGLRC) != FALSE;
-    assert(ok);
+    CheckWin32(wglMakeCurrent(gl_hDC, dummy_hGLRC) != FALSE);
 
     PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
 
@@ -109,13 +135,11 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     };
 
     HGLRC hGLRC = wglCreateContextAttribsARB(gl_hDC, NULL, contextAttribsGL);
-    assert(hGLRC);
+    CheckWin32(hGLRC != NULL);
 
     // Switch to the new context and ditch the old one
-    ok = wglMakeCurrent(gl_hDC, hGLRC) != FALSE;
-    assert(ok);
-    ok = wglDeleteContext(dummy_hGLRC) != FALSE;
-    assert(ok);
+    CheckWin32(wglMakeCurrent(gl_hDC, hGLRC) != FALSE);
+    CheckWin32(wglDeleteContext(dummy_hGLRC) != FALSE);
 
     // Grab WGL functions
     PFNWGLDXOPENDEVICENVPROC wglDXOpenDeviceNV = (PFNWGLDXOPENDEVICENVPROC)wglGetProcAddress("wglDXOpenDeviceNV");
@@ -167,7 +191,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-    hr = D3D11CreateDeviceAndSwapChain(NULL,                        // pAdapter
+    CheckHR(D3D11CreateDeviceAndSwapChain(NULL,                        // pAdapter
         D3D_DRIVER_TYPE_HARDWARE,    // DriverType
         NULL,                        // Software
         flags,                       // Flags (Do not set D3D11_CREATE_DEVICE_SINGLETHREADED)
@@ -178,42 +202,38 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         &swapChain,                  // ppSwapChain
         &device,                     // ppDevice
         NULL,                        // pFeatureLevel
-        &devCtx);                    // ppImmediateContext
-    assert(SUCCEEDED(hr));
+        &devCtx));                    // ppImmediateContext
 
     // get frame latency waitable object
     IDXGISwapChain2* swapChain2;
-    hr = swapChain->QueryInterface(&swapChain2);
-    assert(SUCCEEDED(hr));
+    CheckHR(swapChain->QueryInterface(&swapChain2));
     hFrameLatencyWaitableObject = swapChain2->GetFrameLatencyWaitableObject();
 
     // Create depth stencil texture
     ID3D11Texture2D *dxDepthBuffer;
-    hr = device->CreateTexture2D(
+    CheckHR(device->CreateTexture2D(
         &CD3D11_TEXTURE2D_DESC(DXGI_FORMAT_R24G8_TYPELESS, SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1, D3D11_BIND_DEPTH_STENCIL),
         NULL,
-        &dxDepthBuffer);
-    assert(SUCCEEDED(hr));
+        &dxDepthBuffer));
 
     // Create depth stencil view
     ID3D11DepthStencilView *depthBufferView;
-    hr = device->CreateDepthStencilView(
+    CheckHR(device->CreateDepthStencilView(
         dxDepthBuffer,
         &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D24_UNORM_S8_UINT),
-        &depthBufferView);
-    assert(SUCCEEDED(hr));
+        &depthBufferView));
 
     // Register D3D11 device with GL
     HANDLE gl_handleD3D;
     gl_handleD3D = wglDXOpenDeviceNV(device);
-    assert(gl_handleD3D); // check GetLastError() if this fails
+    CheckWin32(gl_handleD3D != NULL);
 
     // register the Direct3D depth/stencil buffer as texture2d in opengl
     GLuint dsvNameGL;
     glGenTextures(1, &dsvNameGL);
 
     HANDLE dsvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxDepthBuffer, dsvNameGL, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
-    assert(dsvHandleGL); // check GetLastError() if this fails
+    CheckWin32(dsvHandleGL != NULL);
 
     // Initialize GL FBO
     GLuint fbo;
@@ -240,25 +260,22 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         }
 
         // Wait until the previous frame is presented before drawing the next frame
-        ok = WaitForSingleObject(hFrameLatencyWaitableObject, INFINITE) == WAIT_OBJECT_0;
-        assert(ok);
+        CheckWin32(WaitForSingleObject(hFrameLatencyWaitableObject, INFINITE) == WAIT_OBJECT_0);
 
         // Fetch the current swapchain backbuffer from the FLIP swap chain
         ID3D11Texture2D *dxColorBuffer;
-        hr = swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID *)&dxColorBuffer);
-        assert(SUCCEEDED(hr));
+        CheckHR(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (LPVOID *)&dxColorBuffer));
 
         // Create RTV for swapchain backbuffer
         ID3D11RenderTargetView *colorBufferView;
-        hr = device->CreateRenderTargetView(
+        CheckHR(device->CreateRenderTargetView(
             dxColorBuffer,
             &CD3D11_RENDER_TARGET_VIEW_DESC(D3D11_RTV_DIMENSION_TEXTURE2D, DXGI_FORMAT_R8G8B8A8_UNORM),
-            &colorBufferView);
-        assert(SUCCEEDED(hr));
+            &colorBufferView));
 
         // register current backbuffer
         HANDLE rtvHandleGL = wglDXRegisterObjectNV(gl_handleD3D, dxColorBuffer, rtvNameGL, GL_TEXTURE_2D, WGL_ACCESS_READ_WRITE_NV);
-        assert(rtvHandleGL); // check GetLastError() if this fails
+        CheckWin32(rtvHandleGL != NULL);
 
         // Attach Direct3D color buffer to FBO
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -317,8 +334,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         wglDXUnlockObjectsNV(gl_handleD3D, 1, &rtvHandleGL);
 
         // DXGI presents the results on the screen
-        hr = swapChain->Present(0, 0);
-        assert(SUCCEEDED(hr));
+        CheckHR(swapChain->Present(0, 0));
 
         // release current backbuffer back to the swap chain
         wglDXUnregisterObjectNV(gl_handleD3D, rtvHandleGL);

@@ -1,4 +1,4 @@
-#include <dxgi1_5.h>
+#include <dxgi1_3.h>
 #include <d3d11.h>
 #include <comdef.h>
 
@@ -14,6 +14,12 @@
 
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 480
+
+// Define this to use a Windows 10 FLIP_DISCARD swap chain
+// FLIP_DISCARD produces incorrect results on NVIDIA (see README),
+// so you probably don't want to use this in practice yet.
+// If this isn't defined, then a simple DISCARD swap chain is used.
+// #define USE_WIN10_SWAPCHAIN
 
 void APIENTRY DebugCallbackGL(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar *message, const void *userParam)
 {
@@ -174,7 +180,9 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     ID3D11Device *device;
     ID3D11DeviceContext *devCtx;
     IDXGISwapChain *swapChain;
+#ifdef USE_WIN10_SWAPCHAIN
     HANDLE hFrameLatencyWaitableObject;
+#endif
 
     DXGI_SWAP_CHAIN_DESC scd = {};
     scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -183,8 +191,12 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scd.OutputWindow = hWnd;
     scd.Windowed = TRUE;
+#ifdef USE_WIN10_SWAPCHAIN
     scd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     scd.Flags = DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
+#else
+    scd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+#endif
 
     UINT flags = 0;
 #if _DEBUG
@@ -204,10 +216,12 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         NULL,                        // pFeatureLevel
         &devCtx));                    // ppImmediateContext
 
+#ifdef USE_WIN10_SWAPCHAIN
     // get frame latency waitable object
     IDXGISwapChain2* swapChain2;
     CheckHR(swapChain->QueryInterface(&swapChain2));
     hFrameLatencyWaitableObject = swapChain2->GetFrameLatencyWaitableObject();
+#endif
 
     // Create depth stencil texture
     ID3D11Texture2D *dxDepthBuffer;
@@ -259,8 +273,10 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
             DispatchMessage(&msg);
         }
 
+#ifdef USE_WIN10_SWAPCHAIN
         // Wait until the previous frame is presented before drawing the next frame
         CheckWin32(WaitForSingleObject(hFrameLatencyWaitableObject, INFINITE) == WAIT_OBJECT_0);
+#endif
 
         // Fetch the current swapchain backbuffer from the FLIP swap chain
         ID3D11Texture2D *dxColorBuffer;
@@ -280,6 +296,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         // Attach Direct3D color buffer to FBO
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rtvNameGL, 0);
+        
+        // Check framebuffer status in order to expose any errors (there are some, despite no apparent side-effects?)
         GLenum fbostatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
         if (fbostatus == GL_FRAMEBUFFER_COMPLETE)
         {
@@ -328,6 +346,8 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         glClear(GL_COLOR_BUFFER_BIT);
         glDisable(GL_SCISSOR_TEST);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        // TODO: Test that depth/stencil tests actually work
 
         // unlock the dsv/rtv
         wglDXUnlockObjectsNV(gl_handleD3D, 1, &dsvHandleGL);

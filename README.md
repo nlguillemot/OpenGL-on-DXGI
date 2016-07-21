@@ -23,8 +23,6 @@ Tested on R9 380.
 
 Currently has an error and returns null when I call `wglDXRegisterObjectNV`. The error message says "The system cannot open the device or file specified." Haven't yet figured out how to get around this.
 
-TODO: Try opening the shared device *before* creating any shared resources.
-
 ## Conclusions
 
 This extension's support doesn't yet match the capabilities of using DXGI with plain D3D, mostly because the implementation of the extension has not been updated for Windows 10 style FLIP swap chains. It works okay with older swap chain types.

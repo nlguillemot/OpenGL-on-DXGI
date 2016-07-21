@@ -187,7 +187,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     DXGI_SWAP_CHAIN_DESC scd = {};
     scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
     scd.SampleDesc.Count = 1;
-    scd.BufferCount = DXGI_MAX_SWAP_CHAIN_BUFFERS; // stress test
+    scd.BufferCount = DXGI_MAX_SWAP_CHAIN_BUFFERS; // TODO: This is a stress test. Should be set to a reasonable value instead, otherwise you'll get lots of latency.
     scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
     scd.OutputWindow = hWnd;
     scd.Windowed = TRUE;
@@ -203,18 +203,23 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
-    CheckHR(D3D11CreateDeviceAndSwapChain(NULL,                        // pAdapter
-        D3D_DRIVER_TYPE_HARDWARE,    // DriverType
-        NULL,                        // Software
-        flags,                       // Flags (Do not set D3D11_CREATE_DEVICE_SINGLETHREADED)
-        NULL,                        // pFeatureLevels
-        0,                           // FeatureLevels
-        D3D11_SDK_VERSION,           // SDKVersion
-        &scd,                        // pSwapChainDesc
-        &swapChain,                  // ppSwapChain
-        &device,                     // ppDevice
-        NULL,                        // pFeatureLevel
-        &devCtx));                    // ppImmediateContext
+    CheckHR(D3D11CreateDeviceAndSwapChain(NULL, // pAdapter
+        D3D_DRIVER_TYPE_HARDWARE,               // DriverType
+        NULL,                                   // Software
+        flags,                                  // Flags (Do not set D3D11_CREATE_DEVICE_SINGLETHREADED)
+        NULL,                                   // pFeatureLevels
+        0,                                      // FeatureLevels
+        D3D11_SDK_VERSION,                      // SDKVersion
+        &scd,                                   // pSwapChainDesc
+        &swapChain,                             // ppSwapChain
+        &device,                                // ppDevice
+        NULL,                                   // pFeatureLevel
+        &devCtx));                              // ppImmediateContext
+
+    // Register D3D11 device with GL
+    HANDLE gl_handleD3D;
+    gl_handleD3D = wglDXOpenDeviceNV(device);
+    CheckWin32(gl_handleD3D != NULL);
 
 #ifdef USE_WIN10_SWAPCHAIN
     // get frame latency waitable object
@@ -236,11 +241,6 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
         dxDepthBuffer,
         &CD3D11_DEPTH_STENCIL_VIEW_DESC(D3D11_DSV_DIMENSION_TEXTURE2D, DXGI_FORMAT_D24_UNORM_S8_UINT),
         &depthBufferView));
-
-    // Register D3D11 device with GL
-    HANDLE gl_handleD3D;
-    gl_handleD3D = wglDXOpenDeviceNV(device);
-    CheckWin32(gl_handleD3D != NULL);
 
     // register the Direct3D depth/stencil buffer as texture2d in opengl
     GLuint dsvNameGL;

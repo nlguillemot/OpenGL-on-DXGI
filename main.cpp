@@ -172,6 +172,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     // Enable OpenGL debugging
 #ifdef _DEBUG
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glEnable(GL_DEBUG_OUTPUT);
     PFNGLDEBUGMESSAGECALLBACKPROC glDebugMessageCallback = (PFNGLDEBUGMESSAGECALLBACKPROC)wglGetProcAddress("glDebugMessageCallback");
     glDebugMessageCallback(DebugCallbackGL, 0);
 #endif

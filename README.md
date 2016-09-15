@@ -15,7 +15,7 @@ Also, I'm getting errors in the framebuffer's status. Not sure why yet. The erro
 
 ## Intel
 
-Intel recently started supporting `WGL_NV_DX_interop2`, but I haven't figured out how to get the bleeding edge drivers to use it. I'll test it as soon as the updated drivers trickle down to my computer.
+Same error as AMD (below). Tested on Intel Iris 540.
 
 ## AMD
 

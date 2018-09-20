@@ -13,15 +13,23 @@ Also, there are some exceptions being thrown when the swap chain buffer is regis
 
 Also, I'm getting errors in the framebuffer's status. Not sure why yet. The error is different between the first frame of rendering and subsequent frames.
 
+(Last updated: 2016)
+
 ## Intel
 
 Same error as AMD (below). Tested on Intel Iris 540.
+
+(Last updated: 2016)
 
 ## AMD
 
 Tested on R9 380.
 
-Currently has an error and returns null when I call `wglDXRegisterObjectNV`. The error message says "The system cannot open the device or file specified." Haven't yet figured out how to get around this.
+~~Currently has an error and returns null when I call `wglDXRegisterObjectNV`. The error message says "The system cannot open the device or file specified." Haven't yet figured out how to get around this.~~
+
+Update: Apparently this error no longer happens, and it works now. Tested on driver version 18.9.1.
+
+(Last updated: 2018)
 
 ## Conclusions
 
